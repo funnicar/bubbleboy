@@ -1,0 +1,113 @@
+import discord
+from discord.ext import commands
+
+# user id and allowed role
+ALLOWED_USER_ID = 1176029438153064518
+ALLOWED_ROLE_NAME = "co-caine"
+
+# intents
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+intents.dm_messages = True
+
+bot = commands.Bot(command_prefix="sudo ", intents=intents, help_command=None)
+
+THERAPY_CHANNEL_NAME = "therapy"
+ABSTRACTION_ROLE_NAME = "abstraction"
+
+# custom check: co-caine role or specific user
+def cocaine_or_specific_user():
+    async def predicate(ctx):
+        if not ctx.guild:
+            await ctx.send("this command only works in a server 😼")
+            return False
+        if ctx.author.id == ALLOWED_USER_ID:
+            return True
+        if any(role.name == ALLOWED_ROLE_NAME for role in ctx.author.roles):
+            return True
+        await ctx.send("nope. co-caine only 😼")
+        return False
+    return commands.check(predicate)
+
+# on ready
+@bot.event
+async def on_ready():
+    print(f"{bot.user} has been birthed")
+
+# on message
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+    if isinstance(message.channel, discord.TextChannel) and message.channel.name == THERAPY_CHANNEL_NAME:
+        await message.reply(f"hey {message.author.mention} look at this cool bee i drew")
+    await bot.process_commands(message)
+
+# simple ping
+@bot.command()
+async def ping(ctx):
+    await ctx.send(f"{round(bot.latency * 1000)}ms")
+
+# help command
+@bot.command()
+async def help(ctx):
+    await ctx.send(
+        "ping just shows ping. help shows this. nuke is admin only, deletes an entire channel history. "
+        "abstract is admin only, abstracts people. ban is admin only, bans people. say makes him say something. "
+        "suggest <your text> will DM funni car your suggestion"
+    )
+
+# safe nuke
+@bot.command()
+@cocaine_or_specific_user()
+async def nuke(ctx):
+    if not ctx.guild.me.guild_permissions.manage_messages:
+        await ctx.send("i dont have permission to delete messages 😿")
+        return
+    await ctx.channel.purge()
+    await ctx.send("SHUT", delete_after=3)
+
+# safe abstraction ban
+@bot.command()
+@cocaine_or_specific_user()
+async def abstract(ctx, member: discord.Member, *, reason=None):
+    if not ctx.guild.me.guild_permissions.manage_roles:
+        await ctx.send("i cant manage roles 😿")
+        return
+    role = discord.utils.get(ctx.guild.roles, name=ABSTRACTION_ROLE_NAME)
+    if not role:
+        role = await ctx.guild.create_role(name=ABSTRACTION_ROLE_NAME)
+    await member.add_roles(role, reason=reason)
+    await ctx.send(f"into the cellar {member.mention} goes!")
+
+# safe actual ban
+@bot.command()
+@cocaine_or_specific_user()
+async def ban(ctx, member: discord.Member, *, reason=None):
+    if not ctx.guild.me.guild_permissions.ban_members:
+        await ctx.send("i cant ban members 😿")
+        return
+    await member.ban(reason=reason)
+    await ctx.send(f"{member} has been banned")
+
+# say command
+@bot.command()
+async def say(ctx, *, message):
+    if any(x in message for x in ["@", "<@"]):
+        await ctx.send("no pings allowed")
+        return
+    await ctx.send(message)
+
+# suggestion command
+@bot.command()
+async def suggest(ctx, *, suggestion):
+    try:
+        user = await bot.fetch_user(ALLOWED_USER_ID)
+        await user.send(f"[{ctx.author.name}] suggested: {suggestion}")
+        await ctx.send(f"thanks {ctx.author.mention}, your suggestion was sent! i hope this makes this place better..")
+    except Exception as e:
+        await ctx.send(f"oops something went wrong: {e}")
+
+# run the bot
+bot.run("stop that this is my token")
